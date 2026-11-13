@@ -28,6 +28,22 @@ class EntryPayload(BaseModel):
     remark: str | None = None
 
 
+class QueueSubmitPayload(BaseModel):
+    """提交采集请求：可指定策略、请求编号、优先级，也可带一个伪时间用于回放。"""
+
+    values: dict[str, Any] = Field(default_factory=dict)
+    remark: str | None = None
+
+
+class QueueActionPayload(BaseModel):
+    """流转排队记录：动作 + 可选时间；优先级切换时同时带 priority。"""
+
+    action: str = ""
+    now: str | None = None
+    priority: str | None = None
+    remark: str | None = None
+
+
 
 class TaskplanEntry(BaseModel):
     """采集计划明细结构。"""

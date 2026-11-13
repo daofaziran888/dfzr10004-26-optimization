@@ -12,8 +12,15 @@ router = APIRouter(prefix="/api/alert", tags=["采集告警中心"])
 
 service = AlertService()
 
-LIST_FIELDS = ["规则编号", "监控指标", "告警级别", "触发条件", "通知渠道", "静默时间", "升级策略", "是否启用"]
-STATUSES = ["草稿", "待校验", "已启用", "已停用"]
+LIST_FIELDS = ["规则编号", "监控指标", "告警级别", "触发条件", "通知渠道", "静默时间", "升级策略", "是否启用", "关联计划"]
+STATUSES = ["草稿", "待校验", "已启用", "已停用", "已确认"]
+
+
+@router.get("/queue", response_model=dict)
+def list_queue_alerts() -> dict:
+    """排队等待超时提醒：排队调度在等待超时时生成，每条等待记录只提醒一次。"""
+    items = service.queue_alerts()
+    return {"items": items, "total": len(items), "提醒类型": "排队等待超时"}
 
 
 @router.get("", response_model=PageResult[dict])

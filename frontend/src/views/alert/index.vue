@@ -55,6 +55,42 @@
       </tbody>
     </table>
 
+    <section class="queue-panel" data-role="queue-alerts">
+      <header class="queue-head">
+        <div>
+          <h3>排队等待超时提醒</h3>
+          <p class="page-desc">排队调度在等待超过轮数或时长时生成一次提醒；同一等待记录不会重复生成，确认后进入已确认状态。</p>
+        </div>
+        <span class="muted">共 {{ queueAlerts.length }} 条</span>
+      </header>
+      <table class="data-table">
+        <thead>
+          <tr><th>规则编号</th><th>关联计划</th><th>关联策略</th><th>提醒原因</th><th>提醒时间</th><th>等待轮数</th><th>等待秒数</th><th>状态</th><th>动作</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in queueAlerts" :key="String(item.id)">
+            <td>{{ item['规则编号'] }}</td>
+            <td>{{ item['关联计划'] }}</td>
+            <td>{{ item['关联策略'] }}</td>
+            <td>{{ item['提醒原因'] }}</td>
+            <td>{{ item['提醒时间'] }}</td>
+            <td>{{ item['等待轮数'] }}</td>
+            <td>{{ item['等待秒数'] }}</td>
+            <td>{{ item.status }}</td>
+            <td class="row-actions">
+              <button v-if="item.status === '待校验'" class="link" type="button" @click="runAction('确认提醒', item)">
+                确认提醒
+              </button>
+              <span v-else class="muted">—</span>
+            </td>
+          </tr>
+          <tr v-if="!queueAlerts.length">
+            <td colspan="9" class="empty-state">目前没有排队超时提醒</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <footer class="page-foot">
       <span>共 {{ total }} 条采集告警中心记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
@@ -72,10 +108,11 @@ type Row = Record<string, string | number | null>
 const ENDPOINT = '/api/alert'
 const columns = ["规则编号", "监控指标", "告警级别", "触发条件", "通知渠道", "静默时间", "升级策略", "是否启用"]
 const actions = ["提交校验", "启用规则", "停用规则"]
-const statuses = ["草稿", "待校验", "已启用", "已停用"]
-const stats = [{"label": "告警规则总数", "value": 0}, {"label": "待校验告警规则", "value": 0}, {"label": "已启用告警规则", "value": 0}]
+const statuses = ["草稿", "待校验", "已启用", "已停用", "已确认"]
+const stats = ref([{"label": "告警规则总数", "value": 0}, {"label": "待校验告警规则", "value": 0}, {"label": "排队超时提醒", "value": 0}])
 
 const rows = ref<Row[]>([])
+const queueAlerts = ref<Row[]>([])
 const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
@@ -104,6 +141,10 @@ async function runAction(action: string, row: Row) {
     if (!response.ok) {
       throw new Error('采集告警中心动作未生效，请稍后重试')
     }
+    const payload = await response.json()
+    if (payload.ok === false) {
+      throw new Error(payload.message ?? '采集告警中心动作未生效')
+    }
     await reload()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '采集告警中心操作失败'
@@ -121,6 +162,12 @@ async function reload() {
     const payload = await response.json()
     rows.value = payload.items ?? []
     total.value = payload.total ?? rows.value.length
+    const queueResponse = await request(`${ENDPOINT}/queue`)
+    const queuePayload = await queueResponse.json()
+    queueAlerts.value = queuePayload.items ?? []
+    stats.value[0].value = total.value
+    stats.value[1].value = rows.value.filter((row) => row.status === '待校验').length
+    stats.value[2].value = queueAlerts.value.length
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '采集告警中心列表读取失败'
   }
